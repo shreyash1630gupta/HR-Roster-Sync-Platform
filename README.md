@@ -6,8 +6,7 @@
 [![Spring Boot 3.3.4](https://img.shields.io/badge/Spring%20Boot-3.3.4-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose%20v2-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Tests Passing](https://img.shields.io/badge/Tests-119%20%2F%20119%20Passed-brightgreen?style=for-the-badge&logo=checkmarx&logoColor=white)](https://github.com)
-[![Zero PII Guaranteed](https://img.shields.io/badge/PII%20Safety-Masked%20at%20Logback-blueviolet?style=for-the-badge)](https://logback.qos.ch/)
+
 
 <p align="center">
   <strong>Enterprise-Grade, High-Throughput Multi-Tenant Synchronization Engine</strong><br>
@@ -543,11 +542,12 @@ moveinsync-roster-sync/
 │   │       └── logback-spring.xml      # Structured JSON logging configuration
 │   └── test/
 │       └── java/com/moveinsync/roster/ # Unit, Integration, Concurrency & Benchmark Test Suites
+├── .gitignore                          # Build & temporary files exclusion rules
 ├── DESIGN.md                           # 2-Page Executive Architecture Blueprint
 ├── Dockerfile                          # Multi-stage production container build
 ├── docker-compose.yml                  # Service orchestration (PostgreSQL + Roster App)
+├── mvnw.cmd                            # Windows Maven wrapper script
 ├── pom.xml                             # Maven build configuration & dependencies
-├── project_document.md                 # Complete 2,017-line master technical specification
 └── README.md                           # Master project documentation (You are here)
 ```
 
