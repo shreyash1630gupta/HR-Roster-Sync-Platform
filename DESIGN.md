@@ -23,74 +23,25 @@ Enterprise clients of MoveInSync (e.g., Google, Infosys) maintain master employe
 
 ```mermaid
 flowchart TD
-    subgraph Clients["External Callers & Upstream Systems"]
-        HR[Enterprise HR System]
-        TA[Transport Admin UI]
-        OPS[Operations Dashboard]
-        PROM[Prometheus Scraper]
-    end
+    %% Upstream Clients
+    HR[Enterprise HR System] -->|Webhook Events| API[Ingestion API & Auth]
+    HR -->|Nightly CSV Export| API
+    TA[Transport Admin UI] -->|Commute Fields Update| API
 
-    subgraph Security["Security & Context Boundary"]
-        SEC[JwtAuthenticationFilter + SecurityConfig]
-        TCH[TenantContextHolder ThreadLocal]
-        MDC[SLF4J MDC Correlation ID]
-    end
+    %% Processing Core
+    API --> ENGINE[Sync & Reconciliation Engine]
+    CACHE[(Caffeine Office Cache)] --- ENGINE
 
-    subgraph Ingestion["Dual-Path Ingestion Engine"]
-        REST[SyncEventController / Batch Ingestion]
-        RECON[ReconciliationController / Streaming CSV Diff]
-    end
+    %% Database Core
+    ENGINE -->|Atomic Mutations & Idempotency| DB[(PostgreSQL 15 Master)]
+    DB --- T1[employees]
+    DB --- T2[processed_events]
+    DB --- T3[outbox_events]
+    DB --- T4[recon_staging]
 
-    subgraph CoreEngine["Core Processing & Domain Logic"]
-        VAL[EventValidator + OfficeCacheService]
-        ENG[SyncEngine Forward-Progress Processor]
-        REC_ENG[ReconciliationService Set-Based Diff]
-        FOS[FieldOwnershipService]
-    end
-
-    subgraph Storage["PostgreSQL 15 Multi-Tenant Database"]
-        DB_EMP[(employees)]
-        DB_PRO[(processed_events / Level 1 & 2)]
-        DB_STG[(unlogged recon_staging)]
-        DB_OUT[(outbox_events)]
-        DB_BKG[(bookings & seat_assignments)]
-        DB_POUT[(processed_outbox_events)]
-    end
-
-    subgraph Async["Asynchronous Daemons & Side-Effects"]
-        POL[OutboxPoller SKIP LOCKED Daemon]
-        DISP[EventPublisher Dispatcher]
-        CONS[DownstreamSideEffectHandler]
-    end
-
-    HR -->|Real-time Events| SEC
-    HR -->|Nightly CSV| SEC
-    TA -->|Transport Updates| SEC
-    OPS -->|Brake Approval & DLQ| SEC
-    PROM -->|/actuator/prometheus| SEC
-
-    SEC --> TCH
-    SEC --> MDC
-    SEC --> REST
-    SEC --> RECON
-
-    REST --> VAL
-    VAL -->|Cached Office Check| CoreEngine
-    REST --> ENG
-    ENG -->|Mask Transport Fields| FOS
-    ENG -->|Atomic Write| DB_EMP
-    ENG -->|Idempotency Log| DB_PRO
-    ENG -->|Outbox Pattern| DB_OUT
-
-    RECON --> REC_ENG
-    REC_ENG -->|Stream COPY| DB_STG
-    REC_ENG -->|SQL Set Diff Join| DB_EMP
-
-    POL -->|SELECT ... FOR UPDATE SKIP LOCKED| DB_OUT
-    POL --> DISP
-    DISP --> CONS
-    CONS -->|Cancel Future Bookings & Free Seats| DB_BKG
-    CONS -->|Consumer Idempotency Log| DB_POUT
+    %% Async Outbox Dispatch
+    T3 -->|SKIP LOCKED Polling| POLLER[Outbox Poller Daemon]
+    POLLER -->|Cancel Bookings & Free Seats| TRANSIT[Downstream Transit Service]
 ```
 
 ---
@@ -140,77 +91,29 @@ The most complex distributed workflow is the **Nightly Reconciliation Engine**, 
 sequenceDiagram
     autonumber
     actor HR as Upstream HR System
-    actor OP as Human Operations Admin
-    participant Filter as JwtAuthenticationFilter
-    participant Recon as ReconciliationService
-    participant Lock as TenantAdvisoryLockService
-    participant Stage as StagingTableManager
-    participant DB as PostgreSQL 15 Master
-    participant Brake as SafetyBrakeCalculator
-    participant Outbox as OutboxPoller & Downstream
+    actor OP as Operations Admin
+    participant Recon as Reconciliation Service
+    participant DB as PostgreSQL Database
+    participant Brake as Safety Brake
 
-    HR->>Filter: POST /api/v1/sync/reconcile (CSV File, generated_at)
-    Filter->>Filter: Validate JWT & Tenant Match
-    Filter->>Recon: Stream Multipart CSV
+    HR->>Recon: POST /sync/reconcile (CSV File, generated_at)
+    Recon->>DB: Acquire Advisory Lock pg_try_advisory_lock(tenant)
+    Recon->>DB: Stream CSV rows into unlogged staging table (O(1) RAM)
+    Recon->>DB: SQL Outer Join Diff (staging vs. employees)
+    DB-->>Recon: Counts: NEW, CHANGED, MISSING
 
-    Recon->>Lock: pg_try_advisory_lock(tenant_id)
-    alt Lock Acquisition Failed (Concurrent Run Active)
-        Lock-->>Recon: false
-        Recon-->>HR: HTTP 409 Conflict ("Reconciliation already in progress")
-    else Lock Acquired
-        Recon->>DB: Check file_checksum in reconciliation_runs
-        alt Duplicate File Detected
-            Recon-->>HR: HTTP 409 Conflict ("Export file already processed")
-        else Unique File
-            Recon->>Stage: Create Temporary UNLOGGED staging table
-            loop Stream File in Chunks (1,000 rows, O(1) Heap Memory)
-                Stage->>Stage: Validate Row Format & Compute SHA-256
-                Stage->>DB: Batch INSERT into staging table
-            end
+    Note over Recon,DB: Watermark Guard: Skip if db.updated_at >= export.generated_at
 
-            critical Database Set-Based Relational Diff
-                Recon->>DB: Full Outer Join (staging vs. employees)
-                DB-->>Recon: Counts: NEW, CHANGED, MISSING
-            end
-
-            note over Recon,DB: Temporal Watermark Guard: If db.updated_at >= export.generated_at, skip deactivation
-
-            Recon->>Brake: Evaluate (missing_count / total_active)
-            alt Missing Ratio >= 0.30 (Safety Brake Tripped)
-                Brake-->>Recon: SAFETY_BRAKE_TRIGGERED
-                Recon->>DB: Save Candidates to reconciliation_candidates table
-                Recon->>DB: Update run status = NEEDS_APPROVAL
-                Recon->>Lock: Release Advisory Lock
-                Recon-->>HR: HTTP 202 Accepted (Status: NEEDS_APPROVAL, Brake Active)
-
-                note over OP,Recon: Human-in-the-Loop Operator Intervention
-                OP->>Filter: GET /api/v1/reconciliation/{id}
-                Filter-->>OP: Run Details (Missing Ratio: 42%, Candidates: 1,200)
-                OP->>Filter: POST /api/v1/reconciliation/{id}/approve
-                Filter->>Recon: Execute Approved Deactivations
-                critical Apply Approved Run
-                    Recon->>DB: UPDATE employees SET status = 'INACTIVE'
-                    Recon->>DB: INSERT outbox_events (EMPLOYEE_DEACTIVATED)
-                    Recon->>DB: Update run status = COMPLETED
-                end
-                Recon-->>OP: HTTP 200 OK ("Reconciliation run approved and applied")
-            else Normal Run (Missing Ratio < 0.30)
-                critical Apply Safe Reconciliation
-                    Recon->>DB: INSERT NEW employees
-                    Recon->>DB: UPDATE CHANGED employees (Respect Field Ownership)
-                    Recon->>DB: DEACTIVATE MISSING employees
-                    Recon->>DB: INSERT outbox_events
-                    Recon->>DB: Update run status = COMPLETED
-                end
-                Recon->>Lock: Release Advisory Lock
-                Recon-->>HR: HTTP 200 OK (Run COMPLETED)
-            end
-
-            opt Asynchronous Downstream Processing
-                Outbox->>DB: Poll outbox_events (FOR UPDATE SKIP LOCKED)
-                Outbox->>DB: Cancel future bookings (pickup_at > NOW()) & Free seats
-            end
-        end
+    Recon->>Brake: Check missing ratio (missing / active)
+    alt Missing Ratio >= 30% (Safety Brake Trips)
+        Brake-->>Recon: Pause run (Status: NEEDS_APPROVAL)
+        Recon-->>HR: HTTP 202 Accepted (Run held for approval)
+        OP->>Recon: POST /reconciliation/{id}/approve
+        Recon->>DB: Apply deactivations & write outbox_events
+        Recon-->>OP: HTTP 200 OK (Run Completed)
+    else Normal Run (< 30%)
+        Recon->>DB: Apply diff & write outbox_events
+        Recon-->>HR: HTTP 200 OK (Run Completed)
     end
 ```
 
