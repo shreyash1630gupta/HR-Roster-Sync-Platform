@@ -11,7 +11,6 @@
 
 <p align="center">
   <strong>Enterprise-Grade, High-Throughput Multi-Tenant Synchronization Engine</strong><br>
-  Built for <strong>MoveInSync SDE Intern Technical Assessment (Case Study 5: Advanced Track — IIIT & NIT)</strong>
 </p>
 
 [Project Overview](#-1-project-overview) • 
@@ -37,7 +36,7 @@
 
 ---
 
-## 📌 1. Project Overview
+##  1. Project Overview
 
 Corporate clients of MoveInSync (e.g., Google, Infosys, TCS, Amazon) maintain their master employee records in enterprise HR platforms (such as Workday, SAP SuccessFactors, or BambooHR). To manage daily employee transport routes, cab allocations, and shift schedules, these enterprises continuously synchronize their workforce roster with MoveInSync via two distinct ingestion channels:
 
@@ -48,7 +47,7 @@ This project implements the **HR Roster Sync Service** — an enterprise-grade b
 
 ---
 
-## ⚠️ 2. Core Distributed Systems Challenges
+##  2. Core Distributed Systems Challenges
 
 In high-scale enterprise operations, real-world data feeds are inherently messy and subject to network unreliability. This platform solves the following 9 fundamental challenges:
 
@@ -199,7 +198,7 @@ The nightly reconciliation workflow handles full snapshots up to 200,000 employe
 
 ---
 
-## 🗄️ 5. Relational Data Model & Schema
+##  5. Relational Data Model & Schema
 
 The service schema is managed via **Flyway versioned migrations** (`V1__init_schema.sql`):
 
@@ -239,7 +238,7 @@ The service schema is managed via **Flyway versioned migrations** (`V1__init_sch
 
 ---
 
-## 🔌 6. API Reference & Contracts
+##  6. API Reference & Contracts
 
 All secured endpoints require:
 * `Authorization: Bearer <jwt-token>`
@@ -385,7 +384,7 @@ All error responses strictly conform to **RFC 7807**:
 
 ---
 
-## 🔒 8. Security, Multi-Tenancy & PII Safety
+##  8. Security, Multi-Tenancy & PII Safety
 
 ### 8.1 Zero-Trust Multi-Tenancy
 * **Stateless RFC 7519 JWT:** Tokens are signed using HMAC-SHA256 and include authoritative `tenant_id` and `role` claims.
@@ -498,7 +497,7 @@ Import [`scripts/postman_collection.json`](scripts/postman_collection.json) into
 
 ---
 
-## 🧪 12. Automated Test Suite (119 Tests)
+##  12. Automated Test Suite (119 Tests)
 
 To execute the entire automated test suite:
 ```bash
