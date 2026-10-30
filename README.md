@@ -1,4 +1,4 @@
-# 🚀 MoveInSync HR Roster Sync Platform
+# 🚀 MoveInSync HR Roster Sync Platform - CASE STUDY 5
 
 <div align="center">
 
@@ -66,7 +66,7 @@ In high-scale enterprise operations, real-world data feeds are inherently messy 
 
 ---
 
-## 📖 3. Domain Glossary & Concepts
+##  3. Domain Glossary & Concepts
 
 * **Tenant:** An enterprise client of MoveInSync (e.g., Infosys, TCS). All data, schemas, caches, locks, and constraints are strictly tenant-isolated.
 * **Source Version:** A strictly increasing positive integer assigned by the HR system per employee record, representing sequential revisions.
@@ -79,7 +79,7 @@ In high-scale enterprise operations, real-world data feeds are inherently messy 
 
 ---
 
-## ⚙️ 4. Business Workflows & Invariants
+##  4. Business Workflows & Invariants
 
 ### 4.1 Real-Time Ingestion & Event-Type Validation
 
@@ -371,7 +371,7 @@ All error responses strictly conform to **RFC 7807**:
 
 ---
 
-## 🛡️ 7. Failure Mode Analysis & Resilience
+##  7. Failure Mode Analysis & Resilience
 
 | Failure Scenario | System Impact | Detection Mechanism | Automated Mitigation |
 |---|---|---|---|
@@ -437,7 +437,7 @@ Executed on **16-Core Host (AMD Ryzen / Intel Core i7), OpenJDK 17 LTS, PostgreS
 
 ---
 
-## 🐳 10. Quickstart & Deployment
+##  10. Quickstart & Deployment
 
 ### Prerequisites
 * **Docker Engine** 24.0+ and **Docker Compose** v2+
@@ -479,7 +479,7 @@ With PostgreSQL running on `localhost:5432` (`roster_db`):
 
 ---
 
-## 🧪 11. Turnkey Verification & Demo Scripts
+##  11. Turnkey Verification & Demo Scripts
 
 We provide automated demonstration scripts that execute the entire operational lifecycle: token issuance, batch creation, idempotency tests, safety brake trigger, operator approval, and outbox DLQ inspection.
 
@@ -554,7 +554,3 @@ moveinsync-roster-sync/
 
 ---
 
-## 📄 License & Attribution
-
-This project is licensed under the [MIT License](LICENSE).  
-Developed for the **MoveInSync SDE Intern Technical Assessment (Case Study 5: Advanced Track — IIIT & NIT)**.
