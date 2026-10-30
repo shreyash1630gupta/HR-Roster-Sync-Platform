@@ -1,4 +1,4 @@
-# 📐 MoveInSync HR Roster Sync — System Architecture & Design Blueprint
+#  MoveInSync HR Roster Sync — System Architecture & Design Blueprint
   
 ---
 
