@@ -1,5 +1,7 @@
 package com.moveinsync.roster.controller;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.moveinsync.roster.domain.enums.UserRole;
 import com.moveinsync.roster.security.JwtTokenService;
 import com.moveinsync.roster.service.SyncEventService;
@@ -23,8 +25,15 @@ public class AuthController {
 
     @PostMapping("/token")
     @Operation(summary = "Generate JWT Token", description = "Issues a signed JWT token with specified tenant and role claims")
-    public ResponseEntity<TokenResponse> issueToken(@RequestBody TokenRequest request) {
-        UUID tenantId = syncEventService.resolveTenantId(request.getTenantId());
+    public ResponseEntity<TokenResponse> issueToken(@RequestBody(required = false) TokenRequest request) {
+        if (request == null) {
+            request = new TokenRequest();
+        }
+        String tenantInput = (request.getTenantId() != null && !request.getTenantId().isBlank())
+                ? request.getTenantId()
+                : "11111111-1111-1111-1111-111111111111";
+
+        UUID tenantId = syncEventService.resolveTenantId(tenantInput);
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.HR_SYSTEM;
         String subject = request.getSubject() != null ? request.getSubject() : "api-client";
         Duration validity = Duration.ofHours(24);
@@ -45,8 +54,14 @@ public class AuthController {
     @AllArgsConstructor
     @Builder
     public static class TokenRequest {
+        @JsonProperty("tenant_id")
+        @JsonAlias({"tenant_id", "tenantId"})
         private String tenantId;
+
+        @JsonProperty("role")
         private UserRole role;
+
+        @JsonProperty("subject")
         private String subject;
     }
 
@@ -56,9 +71,18 @@ public class AuthController {
     @AllArgsConstructor
     @Builder
     public static class TokenResponse {
+        @JsonProperty("token")
         private String token;
+
+        @JsonProperty("tenant_id")
+        @JsonAlias({"tenant_id", "tenantId"})
         private UUID tenantId;
+
+        @JsonProperty("role")
         private UserRole role;
+
+        @JsonProperty("expires_in_seconds")
+        @JsonAlias({"expires_in_seconds", "expiresInSeconds"})
         private long expiresInSeconds;
     }
 }

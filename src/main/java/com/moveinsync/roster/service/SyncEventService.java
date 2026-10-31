@@ -135,6 +135,9 @@ public class SyncEventService {
     }
 
     public UUID resolveTenantId(String tenantIdOrCode) {
+        if (tenantIdOrCode == null || tenantIdOrCode.isBlank()) {
+            throw new IllegalArgumentException("Tenant identifier is required and cannot be null or blank");
+        }
         try {
             return UUID.fromString(tenantIdOrCode);
         } catch (IllegalArgumentException e) {

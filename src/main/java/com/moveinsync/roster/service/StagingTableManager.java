@@ -58,17 +58,17 @@ public class StagingTableManager {
         String sql = String.format("""
             CREATE TABLE IF NOT EXISTS %s (
                 tenant_id UUID NOT NULL,
-                external_employee_id VARCHAR(64) NOT NULL,
+                external_employee_id VARCHAR(64),
                 source_version BIGINT,
-                name VARCHAR(200) NOT NULL,
-                email VARCHAR(255) NOT NULL,
+                name VARCHAR(200),
+                email VARCHAR(255),
                 phone VARCHAR(32),
                 manager_id VARCHAR(64),
-                office_code VARCHAR(64) NOT NULL,
+                office_code VARCHAR(64),
                 shift VARCHAR(64),
                 department VARCHAR(100),
                 designation VARCHAR(100),
-                record_hash CHAR(64) NOT NULL,
+                record_hash CHAR(64),
                 validation_status VARCHAR(32) DEFAULT 'VALID',
                 error_message TEXT
             );
@@ -193,6 +193,9 @@ public class StagingTableManager {
     }
 
     private Map<String, Integer> parseHeader(String headerLine) {
+        if (headerLine != null && headerLine.startsWith("\uFEFF")) {
+            headerLine = headerLine.substring(1);
+        }
         String[] headers = headerLine.split(",");
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < headers.length; i++) {
@@ -209,8 +212,14 @@ public class StagingTableManager {
         if (row.externalEmployeeId == null || row.externalEmployeeId.isBlank()) {
             row.externalEmployeeId = getVal(parts, colIndex, "employee_id");
         }
+        if (row.externalEmployeeId == null || row.externalEmployeeId.isBlank()) {
+            row.externalEmployeeId = getVal(parts, colIndex, "id");
+        }
 
         String verStr = getVal(parts, colIndex, "source_version");
+        if (verStr == null || verStr.isBlank()) {
+            verStr = getVal(parts, colIndex, "version");
+        }
         if (verStr != null && !verStr.isBlank()) {
             try {
                 row.sourceVersion = Long.parseLong(verStr.trim());
